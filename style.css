@@ -373,19 +373,19 @@ body {
 }
 
 .btn-header-save {
-  background: var(--accent);
-  border: none;
+  background: var(--green-dim);
+  border: 1px solid var(--green);
   border-radius: var(--radius-sm);
-  color: #1a1000;
+  color: var(--green);
   font-size: 14px;
   font-weight: 500;
   font-family: 'DM Sans', sans-serif;
-  padding: 7px 18px;
+  padding: 7px 16px;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: all 0.15s;
 }
 
-.btn-header-save:active { opacity: 0.85; }
+.btn-header-save:active { opacity: 0.8; }
 
 .btn-edit-toggle {
   background: var(--surface2);
