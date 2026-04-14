@@ -86,7 +86,7 @@
   </div>
 
   <!-- Edit Modal -->
-  <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
     <div class="modal">
       <div class="modal-header">
         <h2>Edit recipe</h2>
