@@ -1,5 +1,9 @@
-const CACHE = 'recipe-box-v1';
-const ASSETS = ['/', '/index.html', '/style.css', '/app.js', '/manifest.json'];
+const CACHE = 'recipe-box-v2';
+const ASSETS = [
+  '/', '/index.html', '/style.css', '/app.js', '/manifest.json',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(

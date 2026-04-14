@@ -1,21 +1,47 @@
 const EMOJIS = ['🍝','🌮','🍜','🥗','🍛','🍲','🥘','🍣','🧆','🥞','🍕','🍗','🥩','🍱','🥟','🍤','🫕','🥙','🌯','🥨'];
 const STORAGE_KEY = 'recipe_box_v1';
 
+firebase.initializeApp({
+  apiKey: "AIzaSyDFnC2renqsMDlFE0Pt32JS7xuE4tf_w_k",
+  authDomain: "recipebox-5d176.firebaseapp.com",
+  databaseURL: "https://recipebox-5d176-default-rtdb.firebaseio.com",
+  projectId: "recipebox-5d176",
+  storageBucket: "recipebox-5d176.firebasestorage.app",
+  messagingSenderId: "211643687144",
+  appId: "1:211643687144:web:c3d1be06fe50cc054ae95d"
+});
+const recipesRef = firebase.database().ref('recipes');
+
 let recipes = [];
 let activeFilter = 'all';
 let editingId = null;
 
 function load() {
+  // Load localStorage immediately so the UI isn't blank while Firebase responds
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     recipes = saved ? JSON.parse(saved) : [];
   } catch(e) {
     recipes = [];
   }
+  render();
+
+  // Sync latest from Firebase (picks up changes made on other devices)
+  recipesRef.once('value').then(snapshot => {
+    const data = snapshot.val();
+    if (data) {
+      recipes = Object.values(data).sort((a, b) => b.createdAt - a.createdAt);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
+      render();
+    }
+  }).catch(() => {}); // Fall back to localStorage if offline
 }
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
+  const data = {};
+  recipes.forEach(r => { data[r.id] = r; });
+  recipesRef.set(data).catch(() => {}); // Silent fail if offline
 }
 
 function sourceLabel(url) {
@@ -255,4 +281,3 @@ if ('serviceWorker' in navigator) {
 }
 
 load();
-render();
