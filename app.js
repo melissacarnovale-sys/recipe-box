@@ -37,9 +37,18 @@ function load() {
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
-  const data = {};
-  recipes.forEach(r => { data[r.id] = r; });
-  recipesRef.set(data).catch(() => {});
+}
+
+// Write a single recipe to Firebase without touching any others
+function syncRecipe(recipe) {
+  save();
+  recipesRef.child(String(recipe.id)).set(recipe).catch(() => {});
+}
+
+// Remove a single recipe from Firebase
+function removeRecipe(id) {
+  save();
+  recipesRef.child(String(id)).remove().catch(() => {});
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -118,7 +127,7 @@ async function saveFromLink() {
   };
 
   recipes.unshift(recipe);
-  save();
+  syncRecipe(recipe);
   input.value     = '';
   btn.textContent = 'Save';
   btn.disabled    = false;
@@ -166,7 +175,7 @@ function saveFromScreenshot(input) {
         macros:      { calories: '', protein: '', carbs: '', fat: '' }
       };
       recipes.unshift(recipe);
-      save();
+      syncRecipe(recipe);
       render();
       openDetail(recipe.id, 'edit');
     });
@@ -427,7 +436,7 @@ function saveEdit() {
   };
   r.notes = document.getElementById('edit-notes').value.trim();
   if (r.url && !r.source) r.source = sourceLabel(r.url);
-  save();
+  syncRecipe(r);
   render();
   detailMode = 'view';
   renderDetail();
@@ -437,15 +446,16 @@ function toggleDetailStatus() {
   const r = recipes.find(r => r.id === editingId);
   if (!r) return;
   r.status = r.status === 'want' ? 'tried' : 'want';
-  save();
+  syncRecipe(r);
   render();
   renderDetail();
 }
 
 function deleteRecipe() {
   if (!editingId) return;
-  recipes = recipes.filter(r => r.id !== editingId);
-  save();
+  const id = editingId;
+  recipes = recipes.filter(r => r.id !== id);
+  removeRecipe(id);
   render();
   closeDetail();
 }
