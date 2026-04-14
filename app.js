@@ -261,9 +261,11 @@ function toggleEditMode() {
 function renderDetail() {
   const r = recipes.find(r => r.id === editingId);
   if (!r) return;
-  const toggle = document.getElementById('btn-edit-toggle');
+  const toggle  = document.getElementById('btn-edit-toggle');
+  const saveBtn = document.getElementById('btn-header-save');
   toggle.textContent = detailMode === 'view' ? 'Edit' : 'Cancel';
   toggle.classList.toggle('active', detailMode === 'edit');
+  saveBtn.style.display = detailMode === 'edit' ? '' : 'none';
   document.getElementById('detail-content').innerHTML =
     detailMode === 'view' ? renderViewMode(r) : renderEditMode(r);
   if (detailMode === 'edit') updateStatusButtons(r.status);
@@ -388,8 +390,7 @@ function renderEditMode(r) {
       </div>
     </div>
     <div class="edit-actions">
-      <button class="btn-delete" onclick="deleteRecipe()">Delete</button>
-      <button class="btn-done"   onclick="saveEdit()">Save</button>
+      <button class="btn-delete" onclick="deleteRecipe()">Delete recipe</button>
     </div>
   </div>`;
 }

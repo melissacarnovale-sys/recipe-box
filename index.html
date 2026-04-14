@@ -90,7 +90,10 @@
     <div class="detail-panel">
       <div class="detail-header">
         <button class="btn-back" onclick="closeDetail()">← Back</button>
-        <button class="btn-edit-toggle" id="btn-edit-toggle" onclick="toggleEditMode()">Edit</button>
+        <div class="header-edit-controls">
+          <button class="btn-edit-toggle" id="btn-edit-toggle" onclick="toggleEditMode()">Edit</button>
+          <button class="btn-header-save" id="btn-header-save" onclick="saveEdit()" style="display:none">Save</button>
+        </div>
       </div>
       <div class="detail-content" id="detail-content"></div>
     </div>
