@@ -85,25 +85,14 @@
 
   </div>
 
-  <!-- Edit Modal -->
-  <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Edit recipe</h2>
-        <button class="modal-close" onclick="closeModal()">&#10005;</button>
+  <!-- Recipe Detail Panel -->
+  <div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
+    <div class="detail-panel">
+      <div class="detail-header">
+        <button class="btn-back" onclick="closeDetail()">← Back</button>
+        <button class="btn-edit-toggle" id="btn-edit-toggle" onclick="toggleEditMode()">Edit</button>
       </div>
-      <div class="modal-body">
-        <label class="field-label">Title</label>
-        <input type="text" id="modal-title" class="modal-input" placeholder="Recipe title..." />
-        <label class="field-label">Source link</label>
-        <input type="url" id="modal-url" class="modal-input" placeholder="https://..." />
-        <label class="field-label">Notes</label>
-        <textarea id="modal-notes" class="modal-input modal-textarea" placeholder="Any notes, tweaks, or reminders..."></textarea>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-delete" onclick="deleteRecipe()">Delete</button>
-        <button class="btn-done" onclick="saveModal()">Save</button>
-      </div>
+      <div class="detail-content" id="detail-content"></div>
     </div>
   </div>
 

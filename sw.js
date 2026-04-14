@@ -1,4 +1,4 @@
-const CACHE = 'recipe-box-v2';
+const CACHE = 'recipe-box-v3';
 const ASSETS = [
   '/', '/index.html', '/style.css', '/app.js', '/manifest.json',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
