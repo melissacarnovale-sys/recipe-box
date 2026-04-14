@@ -103,9 +103,33 @@ async function fetchViaProxy(url) {
 
 async function scrapeRecipe(url) {
   const isSocial = url.includes('instagram.com') || url.includes('instagr.am') || url.includes('tiktok.com');
-  if (isSocial) return null;
+  if (isSocial) return { structured: null, meta: null };
+
   const html = await fetchViaProxy(url);
-  return html ? parseSchemaOrg(html) : null;
+  if (!html) return { structured: null, meta: null };
+
+  const structured = parseSchemaOrg(html);
+  const meta = extractPageMeta(html);
+  return { structured, meta };
+}
+
+function extractPageMeta(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const getMeta = (attr, val) =>
+      doc.querySelector(`meta[${attr}="${val}"]`)?.getAttribute('content')?.trim() || '';
+    const title =
+      getMeta('property', 'og:title') ||
+      getMeta('name', 'twitter:title') ||
+      doc.querySelector('h1')?.textContent?.trim() ||
+      doc.querySelector('title')?.textContent?.trim() ||
+      '';
+    const imgUrl =
+      getMeta('property', 'og:image') ||
+      getMeta('name', 'twitter:image') ||
+      '';
+    return { title, imgSrc: safeUrl(imgUrl) };
+  } catch { return { title: '', imgSrc: null }; }
 }
 
 function parseSchemaOrg(html) {
@@ -199,33 +223,33 @@ async function saveFromLink() {
   btn.textContent = 'Saving…';
   btn.disabled = true;
 
-  const scraped = await scrapeRecipe(url);
-  const source  = sourceLabel(url);
+  const { structured, meta } = await scrapeRecipe(url);
+  const source = sourceLabel(url);
 
   const recipe = {
     id:          Date.now(),
-    title:       scraped?.title       || (source ? `Recipe from ${source}` : 'New recipe'),
+    title:       structured?.title || meta?.title || (source ? `Recipe from ${source}` : 'New recipe'),
     url,
     source:      source || 'Link',
     emoji:       randomEmoji(),
-    imgSrc:      scraped?.imgSrc      || null,
+    imgSrc:      structured?.imgSrc || meta?.imgSrc || null,
     status:      'want',
     notes:       '',
     createdAt:   Date.now(),
-    ingredients: scraped?.ingredients || [],
-    steps:       scraped?.steps       || [],
-    cookTime:    scraped?.cookTime    || '',
-    servings:    scraped?.servings    || '',
-    macros:      scraped?.macros      || { calories: '', protein: '', carbs: '', fat: '' }
+    ingredients: structured?.ingredients || [],
+    steps:       structured?.steps       || [],
+    cookTime:    structured?.cookTime    || '',
+    servings:    structured?.servings    || '',
+    macros:      structured?.macros      || { calories: '', protein: '', carbs: '', fat: '' }
   };
 
   recipes.unshift(recipe);
   save();
-  input.value      = '';
-  btn.textContent  = 'Save';
-  btn.disabled     = false;
+  input.value     = '';
+  btn.textContent = 'Save';
+  btn.disabled    = false;
   render();
-  openDetail(recipe.id, scraped ? 'view' : 'edit');
+  openDetail(recipe.id, structured ? 'view' : 'edit');
 }
 
 function compressImage(dataUrl, maxSize, quality, callback) {
