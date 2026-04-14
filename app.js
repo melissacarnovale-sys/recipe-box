@@ -72,144 +72,18 @@ function safeUrl(url) {
   return null;
 }
 
-// ── Scraping ──────────────────────────────────────────────────────────────────
+// ── Link Metadata (Microlink) ─────────────────────────────────────────────────
 
-async function fetchViaProxy(url) {
-  // Try allorigins first (returns JSON wrapper); fall back to corsproxy
-  const proxies = [
-    async () => {
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json.contents || null;
-    },
-    async () => {
-      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-      if (!res.ok) return null;
-      return res.text();
-    }
-  ];
-  for (const attempt of proxies) {
-    try {
-      const controller = new AbortController();
-      const tid = setTimeout(() => controller.abort(), 8000);
-      const html = await attempt();
-      clearTimeout(tid);
-      if (html) return html;
-    } catch {}
-  }
-  return null;
-}
-
-async function scrapeRecipe(url) {
-  const isSocial = url.includes('instagram.com') || url.includes('instagr.am') || url.includes('tiktok.com');
-  if (isSocial) return { structured: null, meta: null };
-
-  const html = await fetchViaProxy(url);
-  if (!html) return { structured: null, meta: null };
-
-  const structured = parseSchemaOrg(html);
-  const meta = extractPageMeta(html);
-  return { structured, meta };
-}
-
-function extractPageMeta(html) {
+async function fetchLinkMeta(url) {
   try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const getMeta = (attr, val) =>
-      doc.querySelector(`meta[${attr}="${val}"]`)?.getAttribute('content')?.trim() || '';
-    const title =
-      getMeta('property', 'og:title') ||
-      getMeta('name', 'twitter:title') ||
-      doc.querySelector('h1')?.textContent?.trim() ||
-      doc.querySelector('title')?.textContent?.trim() ||
-      '';
-    const imgUrl =
-      getMeta('property', 'og:image') ||
-      getMeta('name', 'twitter:image') ||
-      '';
-    return { title, imgSrc: safeUrl(imgUrl) };
-  } catch { return { title: '', imgSrc: null }; }
-}
-
-function parseSchemaOrg(html) {
-  // Try DOMParser first, then fall back to regex in case scripts are stripped
-  const sources = [];
-
-  try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    for (const s of doc.querySelectorAll('script[type="application/ld+json"]')) {
-      sources.push(s.textContent);
-    }
-  } catch {}
-
-  if (sources.length === 0) {
-    // Regex fallback
-    const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-    let m;
-    while ((m = re.exec(html)) !== null) sources.push(m[1]);
-  }
-
-  for (const src of sources) {
-    try {
-      const schema = findRecipeSchema(JSON.parse(src));
-      if (schema) return extractRecipeData(schema);
-    } catch {}
-  }
-  return null;
-}
-
-function findRecipeSchema(data) {
-  if (!data) return null;
-  if (Array.isArray(data)) {
-    for (const item of data) { const f = findRecipeSchema(item); if (f) return f; }
-  }
-  const type = data['@type'];
-  const isRecipe = type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'));
-  if (isRecipe) return data;
-  if (data['@graph']) return findRecipeSchema(data['@graph']);
-  return null;
-}
-
-function parseISO8601Duration(str) {
-  if (!str) return '';
-  const m = str.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
-  if (!m) return str;
-  const h = parseInt(m[1] || 0), min = parseInt(m[2] || 0);
-  if (h && min) return `${h}h ${min} min`;
-  if (h) return `${h}h`;
-  if (min) return `${min} min`;
-  return '';
-}
-
-function extractRecipeData(r) {
-  const raw = r.recipeInstructions || [];
-  const steps = (typeof raw === 'string'
-    ? raw.split('\n')
-    : raw.map(s => (typeof s === 'string' ? s : s.text || s.name || ''))
-  ).map(s => s.trim()).filter(Boolean);
-
-  const n = r.nutrition || {};
-  const rawImg = r.image;
-  const imgUrl = Array.isArray(rawImg) ? rawImg[0]
-    : (rawImg && typeof rawImg === 'object' ? rawImg.url : rawImg);
-
-  return {
-    title:       r.name || '',
-    ingredients: (r.recipeIngredient || []).map(s => s.trim()),
-    steps,
-    cookTime:    parseISO8601Duration(r.totalTime || r.cookTime || ''),
-    servings:    r.recipeYield
-                   ? String(Array.isArray(r.recipeYield) ? r.recipeYield[0] : r.recipeYield)
-                   : '',
-    macros: {
-      calories: n.calories           || '',
-      protein:  n.proteinContent     || '',
-      carbs:    n.carbohydrateContent|| '',
-      fat:      n.fatContent         || ''
-    },
-    imgSrc: safeUrl(typeof imgUrl === 'string' ? imgUrl : null)
-  };
+    const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return null;
+    const { data } = await res.json();
+    return {
+      title:  data.title  || '',
+      imgSrc: safeUrl(data.image?.url) || null
+    };
+  } catch { return null; }
 }
 
 // ── Add Recipe ────────────────────────────────────────────────────────────────
@@ -223,24 +97,24 @@ async function saveFromLink() {
   btn.textContent = 'Saving…';
   btn.disabled = true;
 
-  const { structured, meta } = await scrapeRecipe(url);
+  const meta   = await fetchLinkMeta(url);
   const source = sourceLabel(url);
 
   const recipe = {
     id:          Date.now(),
-    title:       structured?.title || meta?.title || (source ? `Recipe from ${source}` : 'New recipe'),
+    title:       meta?.title || (source ? `Recipe from ${source}` : 'New recipe'),
     url,
     source:      source || 'Link',
     emoji:       randomEmoji(),
-    imgSrc:      structured?.imgSrc || meta?.imgSrc || null,
+    imgSrc:      meta?.imgSrc || null,
     status:      'want',
     notes:       '',
     createdAt:   Date.now(),
-    ingredients: structured?.ingredients || [],
-    steps:       structured?.steps       || [],
-    cookTime:    structured?.cookTime    || '',
-    servings:    structured?.servings    || '',
-    macros:      structured?.macros      || { calories: '', protein: '', carbs: '', fat: '' }
+    ingredients: [],
+    steps:       [],
+    cookTime:    '',
+    servings:    '',
+    macros:      { calories: '', protein: '', carbs: '', fat: '' }
   };
 
   recipes.unshift(recipe);
@@ -249,7 +123,7 @@ async function saveFromLink() {
   btn.textContent = 'Save';
   btn.disabled    = false;
   render();
-  openDetail(recipe.id, structured ? 'view' : 'edit');
+  openDetail(recipe.id, 'edit');
 }
 
 function compressImage(dataUrl, maxSize, quality, callback) {
