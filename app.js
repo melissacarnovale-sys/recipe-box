@@ -74,24 +74,61 @@ function safeUrl(url) {
 
 // ── Scraping ──────────────────────────────────────────────────────────────────
 
+async function fetchViaProxy(url) {
+  // Try allorigins first (returns JSON wrapper); fall back to corsproxy
+  const proxies = [
+    async () => {
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.contents || null;
+    },
+    async () => {
+      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+      if (!res.ok) return null;
+      return res.text();
+    }
+  ];
+  for (const attempt of proxies) {
+    try {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 8000);
+      const html = await attempt();
+      clearTimeout(tid);
+      if (html) return html;
+    } catch {}
+  }
+  return null;
+}
+
 async function scrapeRecipe(url) {
   const isSocial = url.includes('instagram.com') || url.includes('instagr.am') || url.includes('tiktok.com');
   if (isSocial) return null;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    return parseSchemaOrg(await res.text());
-  } catch { return null; }
+  const html = await fetchViaProxy(url);
+  return html ? parseSchemaOrg(html) : null;
 }
 
 function parseSchemaOrg(html) {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
+  // Try DOMParser first, then fall back to regex in case scripts are stripped
+  const sources = [];
+
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    for (const s of doc.querySelectorAll('script[type="application/ld+json"]')) {
+      sources.push(s.textContent);
+    }
+  } catch {}
+
+  if (sources.length === 0) {
+    // Regex fallback
+    const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) sources.push(m[1]);
+  }
+
+  for (const src of sources) {
     try {
-      const schema = findRecipeSchema(JSON.parse(script.textContent));
+      const schema = findRecipeSchema(JSON.parse(src));
       if (schema) return extractRecipeData(schema);
     } catch {}
   }
@@ -103,7 +140,9 @@ function findRecipeSchema(data) {
   if (Array.isArray(data)) {
     for (const item of data) { const f = findRecipeSchema(item); if (f) return f; }
   }
-  if (data['@type'] === 'Recipe') return data;
+  const type = data['@type'];
+  const isRecipe = type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'));
+  if (isRecipe) return data;
   if (data['@graph']) return findRecipeSchema(data['@graph']);
   return null;
 }
